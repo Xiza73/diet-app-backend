@@ -1,6 +1,7 @@
+import { createObjectId } from "../config";
 import { ErrorHandler, ResponseData } from "../helpers";
 import { Unity } from "../interfaces";
-import { Ingredient, Schedule, ScheduleModel } from "../models";
+import { ScheduleModel } from "../models";
 
 interface CountIngredient {
   _id: string;
@@ -20,15 +21,17 @@ interface RecievedRecipe {
 
 interface RecievedSchedule {
   _id: string;
-  recipe: RecievedRecipe[];
+  recipes: RecievedRecipe[];
 }
 
 export const countIngredients = async ({
   startDate,
   endDate,
+  clientId,
 }: {
   startDate: Date;
   endDate: Date;
+  clientId: string;
 }) => {
   try {
     if (!startDate || !endDate)
@@ -41,58 +44,59 @@ export const countIngredients = async ({
             $gte: startDate,
             $lte: endDate,
           },
+          client: createObjectId(clientId),
         },
       },
       {
         $lookup: {
           from: "recipes",
-          localField: "recipe",
+          localField: "recipes",
           foreignField: "_id",
-          as: "recipe",
+          as: "recipes",
         },
       },
       {
-        $unwind: "$recipe",
+        $unwind: "$recipes",
       },
       {
         $lookup: {
           from: "ingredients",
-          localField: "recipe.ingredients",
+          localField: "recipes.ingredients",
           foreignField: "_id",
-          as: "recipe.ingredients",
+          as: "recipes.ingredients",
         },
       },
       {
-        $unwind: "$recipe.ingredients",
+        $unwind: "$recipes.ingredients",
       },
       {
         $lookup: {
           from: "foods",
-          localField: "recipe.ingredients.food",
+          localField: "recipes.ingredients.food",
           foreignField: "_id",
-          as: "recipe.ingredients.food",
+          as: "recipes.ingredients.food",
         },
       },
       {
-        $unwind: "$recipe.ingredients.food",
+        $unwind: "$recipes.ingredients.food",
       },
       {
         $group: {
           _id: "$_id",
           date: { $first: "$date" },
           scheduleType: { $first: "$scheduleType" },
-          recipe: {
+          recipes: {
             $push: {
-              _id: "$recipe._id",
-              name: "$recipe.name",
+              _id: "$recipes._id",
+              name: "$recipes.name",
               ingredients: {
-                _id: "$recipe.ingredients._id",
-                foodId: "$recipe.ingredients.food._id",
-                name: "$recipe.ingredients.food.name",
-                quantity: "$recipe.ingredients.quantity",
-                secondaryQuantity: "$recipe.ingredients.secondaryQuantity",
-                unity: "$recipe.ingredients.food.unity",
-                secondaryUnity: "$recipe.ingredients.food.secondaryUnity",
+                _id: "$recipes.ingredients._id",
+                foodId: "$recipes.ingredients.food._id",
+                name: "$recipes.ingredients.food.name",
+                quantity: "$recipes.ingredients.quantity",
+                secondaryQuantity: "$recipes.ingredients.secondaryQuantity",
+                unity: "$recipes.ingredients.food.unity",
+                secondaryUnity: "$recipes.ingredients.food.secondaryUnity",
               },
             },
           },
@@ -102,12 +106,14 @@ export const countIngredients = async ({
 
     const ingredients: CountIngredient[] = [];
     schedules.forEach((schedule: RecievedSchedule) => {
-      schedule.recipe.forEach((recipe: RecievedRecipe) => {
+      schedule.recipes.forEach((recipe: RecievedRecipe) => {
         const index = ingredients.findIndex(
           (i) => i.foodId.toString() === recipe.ingredients.foodId.toString()
         );
         if (index >= 0) {
           ingredients[index].quantity += recipe.ingredients.quantity;
+          ingredients[index].secondaryQuantity +=
+            recipe.ingredients.secondaryQuantity;
         } else {
           ingredients.push({
             _id: recipe.ingredients._id,
@@ -115,9 +121,7 @@ export const countIngredients = async ({
             name: recipe.ingredients.name,
             quantity: recipe.ingredients.quantity,
             unity: recipe.ingredients.unity,
-            ...(recipe.ingredients.secondaryQuantity && {
-              secondaryQuantity: recipe.ingredients.secondaryQuantity,
-            }),
+            secondaryQuantity: recipe.ingredients.secondaryQuantity,
             ...(recipe.ingredients.secondaryUnity && {
               secondaryUnity: recipe.ingredients.secondaryUnity,
             }),

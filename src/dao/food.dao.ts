@@ -8,20 +8,24 @@ export const createFood = async ({
   unity,
   secondaryUnity,
   price,
+  clientId,
 }: {
   name: string;
   unity: Unity;
   secondaryUnity: Unity;
   price?: number;
+  clientId: string;
 }) => {
   try {
-    if (!name || !unity) return new ErrorHandler(400, "Missing required fields");
+    if (!name || !unity)
+      return new ErrorHandler(400, "Missing required fields");
 
     const food = new FoodModel({
       name,
       unity,
       secondaryUnity,
       ...(price && { price }),
+      client: clientId,
     });
     await food.save();
 
@@ -46,12 +50,18 @@ export const getFood = async ({ id }: { id: string }) => {
   }
 };
 
-export const getFoods = async (data: { page: number; limit: number }) => {
+export const getFoods = async (data: {
+  page: number;
+  limit: number;
+  clientId: string;
+}) => {
   try {
     const page = data?.page || 1;
     const limit = data?.limit || 10;
 
-    const foods = await FoodModel.find()
+    const foods = await FoodModel.find({
+      client: data.clientId,
+    })
       .skip((page - 1) * limit)
       .limit(limit);
 

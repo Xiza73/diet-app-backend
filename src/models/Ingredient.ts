@@ -13,7 +13,7 @@ const IngredientSchema: Schema = new Schema(
   {
     food: { type: ObjectId, ref: "Food", required: true },
     quantity: { type: Number, required: true },
-    secondaryQuantity: { type: Number, required: false },
+    secondaryQuantity: { type: Number, required: false, default: 0 },
   },
   {
     timestamps: true,

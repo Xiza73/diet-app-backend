@@ -11,12 +11,14 @@ export const createRecipe = async ({
   foodIds,
   quantities,
   secondaryQuantities,
+  clientId,
 }: {
   name: string;
   description?: string;
   foodIds: string[];
   quantities: number[];
   secondaryQuantities: number[];
+  clientId: string;
 }) => {
   const session = await mongoose.startSession();
 
@@ -65,6 +67,7 @@ export const createRecipe = async ({
             name,
             ...(description && { description }),
             ingredients,
+            client: clientId,
           },
         ],
         { session }
@@ -146,12 +149,19 @@ export const getRecipe = async ({ id }: { id: string }) => {
   }
 };
 
-export const getRecipes = async (data: { page: number; limit: number }) => {
+export const getRecipes = async (data: {
+  page: number;
+  limit: number;
+  clientId: string;
+}) => {
   try {
     const page = data?.page || 1;
     const limit = data?.limit || 10;
     const [recipeResponse] = await RecipeModel.aggregate([
       {
+        $match: {
+          client: createObjectId(data.clientId),
+        },
         $facet: {
           recipes: [
             {

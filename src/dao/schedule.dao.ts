@@ -3,22 +3,35 @@ import { RecipeModel, Schedule, ScheduleModel } from "../models";
 import { isValidObjectId } from "mongoose";
 import { ScheduleType } from "../interfaces";
 import { getRecipe } from "./recipe.dao";
+import { haveRepeatedValues, isValidArray } from "../utils";
 
 export const createSchedule = async ({
-  recipeId,
+  recipeIds,
+  clientId,
   scheduleType,
   date,
 }: {
-  recipeId: string;
+  recipeIds: string[];
+  clientId: string;
   scheduleType: ScheduleType;
   date: Date;
 }) => {
   try {
-    if (!recipeId || !scheduleType || !date)
+    if (!recipeIds || !scheduleType || !date)
       return new ErrorHandler(400, "Missing required fields");
 
-    if (!isValidObjectId(recipeId))
-      return new ErrorHandler(400, "Invalid recipe id");
+    const haveInvalidRecipeIds = recipeIds.some(
+      (recipeId) => !isValidObjectId(recipeId)
+    );
+
+    if (haveInvalidRecipeIds)
+      return new ErrorHandler(400, "Invalid recipe ids");
+
+    if (haveRepeatedValues(recipeIds))
+      return new ErrorHandler(400, "Food ids must be unique");
+
+    if (!isValidArray(recipeIds))
+      return new ErrorHandler(400, "Invalid recipe ids");
 
     const existScheduled = await ScheduleModel.findOne({
       scheduleType,
@@ -28,16 +41,18 @@ export const createSchedule = async ({
     if (existScheduled)
       return new ErrorHandler(400, "Recipe already scheduled for this date");
 
-    const recipeFound = await RecipeModel.findById(recipeId);
-    if (!recipeFound) return new ErrorHandler(400, "Recipe not found");
-
     const schedule = await ScheduleModel.create({
-      recipe: recipeId,
+      recipes: recipeIds,
+      client: clientId,
       scheduleType,
       date,
     });
 
-    return new ResponseData(201, "Schedule created", schedule);
+    return new ResponseData(200, "Schedule created successfully", {
+      id: schedule.id,
+      scheduleType: schedule.scheduleType,
+      date: schedule.date,
+    });
   } catch (error) {
     return new ErrorHandler(500, error.message || "Error creating schedule");
   }
@@ -46,9 +61,11 @@ export const createSchedule = async ({
 export const getSchedules = async ({
   startDate,
   endDate,
+  clientId,
 }: {
   startDate: Date;
   endDate: Date;
+  clientId: string;
 }) => {
   try {
     if (!startDate || !endDate)
@@ -59,6 +76,7 @@ export const getSchedules = async ({
         $gte: startDate,
         $lte: endDate,
       },
+      client: clientId,
     });
 
     return new ResponseData(200, "Schedules found", schedules);
@@ -72,18 +90,24 @@ export const getSchedule = async ({ id }: { id: string }) => {
     if (!id) return new ErrorHandler(400, "Missing required fields");
     if (!isValidObjectId(id)) return new ErrorHandler(400, "Invalid ObjectId");
 
-    const schedule: Schedule = await ScheduleModel.findById(id);
+    const schedule: Schedule = await ScheduleModel.findById(id).populate(
+      "recipes"
+    );
     if (!schedule) return new ErrorHandler(400, "Schedule not found");
 
-    const recipeResponse = await getRecipe({ id: schedule.recipe.id });
+    /* const recipeResponse = await getRecipe({ id: schedule.recipe.id });
     if (recipeResponse instanceof ErrorHandler)
-      return new ErrorHandler(400, "Recipe not found");
+      return new ErrorHandler(400, "Recipe not found"); */
+
+    const recipeResponse = await Promise.all(
+      schedule.recipes.map((recipe) => getRecipe({ id: recipe._id }))
+    );
 
     return new ResponseData(200, "Schedule found", {
       id: schedule.id,
       scheduleType: schedule.scheduleType,
       date: schedule.date,
-      recipe: recipeResponse.data,
+      recipes: recipeResponse,
     });
   } catch (error) {
     return new ErrorHandler(500, error.message || "Error getting schedule");

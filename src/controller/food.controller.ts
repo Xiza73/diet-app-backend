@@ -1,23 +1,24 @@
 import { NextFunction, Request, Response } from "express";
 import * as foodService from "../dao/food.dao";
 import { controllerResponse } from "../helpers";
+import { clientMiddleware } from "../helpers/ClientHandler";
+import { getClientId } from "../utils";
 
-export const createFood = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const { name, unity, secondaryUnity, price } = req.body;
+export const createFood = clientMiddleware(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { name, unity, secondaryUnity, price } = req.body;
 
-  const response = await foodService.createFood({
-    name,
-    unity,
-    secondaryUnity,
-    price
-  });
+    const response = await foodService.createFood({
+      name,
+      unity,
+      secondaryUnity,
+      price,
+      clientId: getClientId(req),
+    });
 
-  return controllerResponse(response, res, next);
-};
+    return controllerResponse(response, res, next);
+  }
+);
 
 export const getFood = async (
   req: Request,
@@ -30,16 +31,15 @@ export const getFood = async (
   return controllerResponse(response, res, next);
 };
 
-export const getFoods = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const { page, limit } = req.query;
-  const response = await foodService.getFoods({
-    page: Number(page),
-    limit: Number(limit),
-  });
+export const getFoods = clientMiddleware(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { page, limit } = req.query;
+    const response = await foodService.getFoods({
+      page: Number(page),
+      limit: Number(limit),
+      clientId: getClientId(req),
+    });
 
-  return controllerResponse(response, res, next);
-};
+    return controllerResponse(response, res, next);
+  }
+);

@@ -1,10 +1,11 @@
 import { model, Schema, Document } from "mongoose";
-import { Ingredient } from ".";
+import { Client, Ingredient } from ".";
 import { ObjectId } from "../config";
 
 export interface Recipe extends Document {
   _id: string;
   ingredients: Ingredient[];
+  client: Client;
   name: string;
   description: string;
 }
@@ -18,6 +19,7 @@ const RecipeSchema: Schema = new Schema(
         required: true,
       },
     ],
+    client: { type: ObjectId, ref: "Client" },
     name: { type: String, required: true, unique: true, trim: true },
     description: { type: String, trim: true, default: "" },
   },
