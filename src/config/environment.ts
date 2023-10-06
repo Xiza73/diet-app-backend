@@ -8,5 +8,8 @@ const environment = {
 };
 
 export const getEnvironment = () => {
+  console.log("environment", environment);
+  console.log("process.env", process.env);
+  console.log("FIRME");
   return environment;
 };
